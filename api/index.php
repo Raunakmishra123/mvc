@@ -27,6 +27,7 @@ putenv('DB_DATABASE=' . $targetDb);
 putenv('SESSION_DRIVER=cookie');
 putenv('CACHE_STORE=array');
 putenv('LOG_CHANNEL=stderr');
+putenv('VIEW_COMPILED_PATH=/tmp');
 
 // Forward Vercel requests to Laravel's public/index.php
 require __DIR__ . '/../public/index.php';
