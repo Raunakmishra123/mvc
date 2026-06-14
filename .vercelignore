@@ -1,0 +1,13 @@
+/bootstrap/cache/packages.php
+/bootstrap/cache/services.php
+/bootstrap/cache/config.php
+/bootstrap/cache/routes.php
+/bootstrap/cache/events.php
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/node_modules
+/vendor
+.git
+.env
+scratch/
