@@ -99,6 +99,45 @@ $totalPct = (float) array_sum(
 
 ---
 
+### Correction 4: PHP Foreach Reference Pollution in `detectDuplicates()`
+
+**What the AI wrote:**
+```php
+private function detectDuplicates(array &$candidates): void
+{
+    ...
+    foreach ($candidates as $idx => &$c) {
+        ...
+        if (!$foundExact) {
+            foreach ($candidates as $prevIdx => $prev) {
+                ...
+            }
+        }
+        ...
+        $softSeen[$softFp][] = $idx;
+    }
+    unset($c);
+}
+```
+
+**Why this is wrong:**
+In PHP, when iterating over an array by reference (`&$c`) in an outer loop, performing a nested loop over the *same* array (`foreach ($candidates as $prevIdx => $prev)`) can cause the active reference pointer to get polluted or mutated. This resulted in elements comparing themselves to themselves, flagging several rows (like Row 11, 12, 13) incorrectly as `EXACT_DUPLICATE_IN_BATCH` with themselves.
+
+**How I caught it:**
+When running the import on the updated CSV, rows from 11 onwards were flagged as duplicate of themselves (e.g., "Row 11 is an exact duplicate of row 11"). Tracing the `detectDuplicates()` logic step-by-step revealed that the outer loop's reference `&$c` was being polluted by the inner iteration.
+
+**What I changed:**
+Modified the outer loop to iterate by copy (`$c`) and explicitly write back the mutated candidate to the array using the index at the end of the loop:
+```php
+foreach ($candidates as $idx => $c) {
+    ...
+    $softSeen[$softFp][] = $idx;
+    $candidates[$idx] = $c;
+}
+```
+
+---
+
 ## AI Prompt Patterns That Worked Well
 
 1. **Giving the AI the full context upfront** (schema + all anomaly types + policies) before asking for code — this reduced back-and-forth significantly.

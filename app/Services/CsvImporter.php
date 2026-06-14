@@ -519,7 +519,7 @@ class CsvImporter
         }
 
         // ── resolve member IDs ────────────────────────────────────────────────
-        // Collect split_with names; if empty, fall back to all active members.
+        // Collect split_with names; if empty, fall back to all active members on the expense date.
         $memberIds   = [];
         $detailsById = [];
 
@@ -528,7 +528,6 @@ class CsvImporter
                 [$norm] = $this->normaliseName($rawName);
                 $uid    = $norm ? $this->resolveUserId($norm) : null;
                 if ($uid === null) {
-                    // A9: unknown member
                     $notes[] = $this->note(
                         'UNKNOWN_MEMBER', 'high',
                         "'{$rawName}' in split_with does not match any known user.",
@@ -537,6 +536,28 @@ class CsvImporter
                     $forceReview = true;
                     continue;
                 }
+
+                // Verify time-aware membership on the expense date
+                $isActive = DB::table('group_memberships')
+                    ->where('group_id', $this->groupId)
+                    ->where('user_id', $uid)
+                    ->whereRaw("date(joined_on) <= ?", [$dateIso])
+                    ->where(function ($q) use ($dateIso) {
+                        $q->whereNull('left_on')
+                          ->orWhereRaw("date(left_on) >= ?", [$dateIso]);
+                    })
+                    ->exists();
+
+                if (!$isActive) {
+                    $notes[] = $this->note(
+                        'MEMBERSHIP_MISMATCH', 'high',
+                        "'{$norm}' is listed in split_with but was not an active member on {$dateIso}.",
+                        'Removed from split; share redistributed among active split members.'
+                    );
+                    $forceReview = true;
+                    continue;
+                }
+
                 $memberIds[] = $uid;
             }
             // Map detail values from name → user_id
@@ -548,37 +569,61 @@ class CsvImporter
                 }
             }
         } else {
-            // A10: no split_with → use all active group members
+            // A10: no split_with → use all active group members on the expense date
             $memberIds = DB::table('group_memberships')
                 ->where('group_id', $this->groupId)
-                ->whereNull('left_on')
+                ->whereRaw("date(joined_on) <= ?", [$dateIso])
+                ->where(function ($q) use ($dateIso) {
+                    $q->whereNull('left_on')
+                      ->orWhereRaw("date(left_on) >= ?", [$dateIso]);
+                })
                 ->pluck('user_id')
                 ->toArray();
             if (empty($memberIds)) {
                 $notes[]     = $this->note(
                     'NO_ACTIVE_MEMBERS', 'high',
-                    "split_with is empty and the group has no active members.",
+                    "split_with is empty and the group has no active members on {$dateIso}.",
                     'Expense created with no splits; excluded from balances.'
                 );
                 $forceReview = true;
             } else {
                 $notes[] = $this->note(
                     'SPLIT_WITH_DEFAULTED', 'info',
-                    'split_with was empty; expense split equally among all active group members.',
-                    'Used current active membership list.'
+                    "split_with was empty; expense split equally among members active on {$dateIso}.",
+                    'Used active membership list for that date.'
                 );
             }
         }
 
         // ── A11: payer not in split ───────────────────────────────────────────
         $paidById = $paidByName ? $this->resolveUserId($paidByName) : null;
-        if ($paidById && !in_array($paidById, $memberIds, true)) {
-            $notes[] = $this->note(
-                'PAYER_NOT_IN_SPLIT', 'low',
-                "Payer ({$paidByName}) is not listed in split_with; added to split list.",
-                'Payer added to memberIds so their fronted amount is tracked.'
-            );
-            $memberIds[] = $paidById;
+        if ($paidById) {
+            // Check if payer was an active member on the date
+            $isPayerActive = DB::table('group_memberships')
+                ->where('group_id', $this->groupId)
+                ->where('user_id', $paidById)
+                ->whereRaw("date(joined_on) <= ?", [$dateIso])
+                ->where(function ($q) use ($dateIso) {
+                    $q->whereNull('left_on')
+                      ->orWhereRaw("date(left_on) >= ?", [$dateIso]);
+                })
+                ->exists();
+            if (!$isPayerActive) {
+                $notes[] = $this->note(
+                    'PAYER_MEMBERSHIP_MISMATCH', 'low',
+                    "Payer ({$paidByName}) was not an active member on {$dateIso}.",
+                    'Imported; payer credited but not added to split.'
+                );
+            } else {
+                if (!in_array($paidById, $memberIds, true)) {
+                    $notes[] = $this->note(
+                        'PAYER_NOT_IN_SPLIT', 'low',
+                        "Payer ({$paidByName}) is not listed in split_with; added to split list.",
+                        'Payer added to memberIds so their fronted amount is tracked.'
+                    );
+                    $memberIds[] = $paidById;
+                }
+            }
         }
 
         // ── A12: unequal totals don't sum to expense amount ───────────────────
@@ -650,31 +695,26 @@ class CsvImporter
     // DUPLICATE DETECTION  (A19, A20)
     // ──────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Mark candidates that are identical to an earlier row in the same import.
-     * Also checks against already-persisted expenses in the DB.
-     *
-     * Two rows are "exact duplicates" when they share the same:
-     *   date + description (lowercased) + amount_inr + paid_by_id
-     *
-     * "Possible duplicates" (same date + amount + payer, different description)
-     * are flagged needs_review but still imported.
-     */
+    private function similarity(string $s1, string $s2): float
+    {
+        $w1 = array_filter(preg_split('/\W+/', strtolower($s1)));
+        $w2 = array_filter(preg_split('/\W+/', strtolower($s2)));
+        if (empty($w1) || empty($w2)) {
+            return 0.0;
+        }
+        $intersect = array_intersect($w1, $w2);
+        $union = array_unique(array_merge($w1, $w2));
+        return count($intersect) / count($union);
+    }
+
     private function detectDuplicates(array &$candidates): void
     {
-        $seen = []; // fingerprint → first candidate index
+        $softSeen = []; // softFp → list of candidate indices
 
-        foreach ($candidates as $idx => &$c) {
+        foreach ($candidates as $idx => $c) {
             if ($c['kind'] !== 'expense') {
                 continue;
             }
-
-            $fp = implode('|', [
-                $c['date'],
-                strtolower($c['description']),
-                $c['amount_inr'],
-                $c['paid_by_id'] ?? '',
-            ]);
 
             $softFp = implode('|', [
                 $c['date'],
@@ -682,17 +722,65 @@ class CsvImporter
                 $c['paid_by_id'] ?? '',
             ]);
 
-            // Check within this import batch first
-            if (isset($seen[$fp])) {
-                $c['notes'][] = $this->note(
-                    'EXACT_DUPLICATE_IN_BATCH', 'high',
-                    "Row {$c['row_number']} is an exact duplicate of row {$candidates[$seen[$fp]]['row_number']} "
-                    . "in this import (same date, description, amount, payer).",
-                    'needs_review=1. Both rows imported; link is_duplicate_of once first is saved.'
-                );
-                $c['needs_review'] = true;
-            } else {
-                $seen[$fp] = $idx;
+            $foundExact = false;
+            foreach ($softSeen[$softFp] ?? [] as $prevIdx) {
+                $prev = $candidates[$prevIdx];
+                if (strtolower(trim($prev['description'])) === strtolower(trim($c['description']))) {
+                    $c['notes'][] = $this->note(
+                        'EXACT_DUPLICATE_IN_BATCH', 'high',
+                        "Row {$c['row_number']} is an exact duplicate of row {$prev['row_number']} in this import (same date, description, amount, payer).",
+                        'needs_review=1. Excluded from balances; will link is_duplicate_of once saved.'
+                    );
+                    $c['needs_review'] = true;
+                    $c['excluded_from_balances'] = true;
+                    $foundExact = true;
+                    break;
+                }
+            }
+
+            if (!$foundExact) {
+                // Check soft duplicate / description conflict (same payer, same amount, similar description)
+                foreach ($softSeen[$softFp] ?? [] as $prevIdx) {
+                    $prev = $candidates[$prevIdx];
+                    $sim = $this->similarity($prev['description'], $c['description']);
+                    if ($sim >= 0.4) {
+                        $c['notes'][] = $this->note(
+                            'POSSIBLE_DUPLICATE_CONFLICT', 'high',
+                            "Row {$c['row_number']} has same date/amount/payer as row {$prev['row_number']} with similar description ('{$c['description']}' vs '{$prev['description']}').",
+                            'Imported and counted in balances; flagged needs_review=1 for human comparison.'
+                        );
+                        $c['needs_review'] = true;
+                        
+                        // Also make sure previous candidate is marked for review
+                        $candidates[$prevIdx]['needs_review'] = true;
+                        $foundExact = true; // prevent checking for different payer/amount
+                        break;
+                    }
+                }
+            }
+
+            // Check possible duplicate conflict (same date + description overlap, but payer or amount differs)
+            if (!$foundExact) {
+                foreach ($candidates as $prevIdx => $prev) {
+                    if ($prevIdx >= $idx || $prev['kind'] !== 'expense') {
+                        continue;
+                    }
+                    if ($prev['date'] === $c['date']) {
+                        $sim = $this->similarity($prev['description'], $c['description']);
+                        if ($sim >= 0.4) {
+                            if ($prev['amount_inr'] != $c['amount_inr'] || $prev['paid_by_id'] != $c['paid_by_id']) {
+                                $c['notes'][] = $this->note(
+                                    'POSSIBLE_DUPLICATE_CONFLICT', 'high',
+                                    "Row {$c['row_number']} is a possible duplicate of row {$prev['row_number']} on the same date with a similar description ('{$c['description']}' vs '{$prev['description']}') but different payer/amount.",
+                                    'Imported and counted in balances; flagged needs_review=1 for human comparison.'
+                                );
+                                $c['needs_review'] = true;
+                                $candidates[$prevIdx]['needs_review'] = true;
+                                break;
+                            }
+                        }
+                    }
+                }
             }
 
             // Check against DB
@@ -701,24 +789,35 @@ class CsvImporter
                 ->where('expense_date', $c['date'])
                 ->where('amount_inr', $c['amount_inr'])
                 ->where('paid_by', $c['paid_by_id'])
-                ->first();
+                ->get();
 
-            if ($existing) {
-                $sameDesc = strtolower(trim($existing->description)) === strtolower($c['description']);
-                $anomalyType = $sameDesc ? 'EXACT_DUPLICATE_IN_DB' : 'POSSIBLE_DUPLICATE_IN_DB';
-                $severity    = $sameDesc ? 'high' : 'low';
-                $c['notes'][] = $this->note(
-                    $anomalyType, $severity,
-                    ($sameDesc
-                        ? "Exact match found in DB (expense #{$existing->id}): same date, description, amount, payer."
-                        : "Possible duplicate: expense #{$existing->id} has same date/amount/payer but different description."),
-                    'needs_review=1 and is_duplicate_of set to existing expense ID.'
-                );
-                $c['is_duplicate_of'] = $existing->id;
-                $c['needs_review']    = true;
+            foreach ($existing as $ext) {
+                $sameDesc = strtolower(trim($ext->description)) === strtolower(trim($c['description']));
+                $sim = $this->similarity($ext->description, $c['description']);
+                if ($sameDesc) {
+                    $c['notes'][] = $this->note(
+                        'EXACT_DUPLICATE_IN_DB', 'high',
+                        "Exact match found in DB (expense #{$ext->id}): same date, description, amount, payer.",
+                        'needs_review=1. Excluded from balances; is_duplicate_of set.'
+                    );
+                    $c['is_duplicate_of'] = $ext->id;
+                    $c['needs_review'] = true;
+                    $c['excluded_from_balances'] = true;
+                    break;
+                } elseif ($sim >= 0.4) {
+                    $c['notes'][] = $this->note(
+                        'POSSIBLE_DUPLICATE_IN_DB', 'high',
+                        "Possible duplicate in DB (expense #{$ext->id}): same date/amount/payer with similar description.",
+                        'Imported but flagged for human review.'
+                    );
+                    $c['needs_review'] = true;
+                    break;
+                }
             }
+
+            $softSeen[$softFp][] = $idx;
+            $candidates[$idx] = $c;
         }
-        unset($c);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
