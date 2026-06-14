@@ -16,18 +16,26 @@ if (!file_exists($targetDb)) {
     }
 }
 
-// Set up serverless defaults
-if (!getenv('APP_KEY')) {
-    putenv('APP_KEY=base64:11B1hgXGTh4/ddJSRda8d16pffA6kidviLr0iVMYRws=');
+// Helper to set environment variables in putenv, $_ENV, and $_SERVER
+function set_env_var($key, $value) {
+    putenv("$key=$value");
+    $_ENV[$key] = $value;
+    $_SERVER[$key] = $value;
 }
-putenv('APP_ENV=production');
-putenv('APP_DEBUG=true');
-putenv('DB_CONNECTION=sqlite');
-putenv('DB_DATABASE=' . $targetDb);
-putenv('SESSION_DRIVER=cookie');
-putenv('CACHE_STORE=array');
-putenv('LOG_CHANNEL=stderr');
-putenv('VIEW_COMPILED_PATH=/tmp');
+
+// Set up serverless defaults
+if (!getenv('APP_KEY') && empty($_ENV['APP_KEY']) && empty($_SERVER['APP_KEY'])) {
+    set_env_var('APP_KEY', 'base64:11B1hgXGTh4/ddJSRda8d16pffA6kidviLr0iVMYRws=');
+}
+
+set_env_var('APP_ENV', 'production');
+set_env_var('APP_DEBUG', 'true');
+set_env_var('DB_CONNECTION', 'sqlite');
+set_env_var('DB_DATABASE', $targetDb);
+set_env_var('SESSION_DRIVER', 'cookie');
+set_env_var('CACHE_STORE', 'array');
+set_env_var('LOG_CHANNEL', 'stderr');
+set_env_var('VIEW_COMPILED_PATH', '/tmp');
 
 // Forward Vercel requests to Laravel's public/index.php
 require __DIR__ . '/../public/index.php';
