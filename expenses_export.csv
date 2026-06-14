@@ -1,0 +1,32 @@
+date,description,paid_by,amount,currency,split_type,split_with,split_details,notes
+01/02/2026,February groceries,Aisha,2400,INR,equal,Aisha;Rohan;Priya;Meera,,Monthly grocery run
+2026-02-08,Netflix subscription,Rohan,649,INR,equal,Aisha;Rohan;Priya;Meera,,Streaming shared equally
+12/02/2026,Electricity bill - January,Priya,"1,200",INR,unequal,Aisha;Rohan;Priya;Meera,Aisha 300;Rohan 300;Priya 300;Meera 300,Split by room size
+14/02/2026,Internet bill,Meera,800,INR,equal,Aisha;Rohan;Priya;Meera,Aisha 200;Rohan 200;Priya 200;Meera 200,
+18/02/2026,Groceries - week 2,Priya S,1800,INR,equal,Aisha;Rohan;Priya;Meera,,
+22/02/2026,Water bill,Aisha,450,,equal,Aisha;Rohan;Priya;Meera,,
+26/02/2026,House cleaning service,Rohan,600,INR,,Aisha;Rohan;Priya;Meera,,Monthly cleaner
+28/02/2026,End of February groceries,Meera,899.995,INR,equal,Aisha;Rohan;Priya;Meera,,Slightly over budget
+05/03/2026,March groceries,Aisha,2600,INR,equal,Aisha;Rohan;Priya;Meera,,
+08/03/2026,Pre-Goa dinner,Rohan,3200,INR,equal,Aisha;Rohan;Priya;Meera,,Celebratory dinner before trip
+08/03/2026,Pre-Goa dinner,Rohan,3200,INR,equal,Aisha;Rohan;Priya;Meera,,Celebratory dinner before trip
+08/03/2026,Pre-trip dinner,Priya,2800,INR,equal,Aisha;Rohan;Priya;Meera,,
+Mar 9,Goa hotel - Day 1,Aisha,120,USD,equal,Aisha;Rohan;Priya;Dev,,
+09/03/2026,Goa airport taxi,Dev,25,USD,equal,Aisha;Rohan;Priya;Dev,,
+10/03/2026,Goa beach restaurant,Rohan,89,USD,percentage,Aisha;Rohan;Priya;Dev,Aisha 30%;Rohan 30%;Priya 20%;Dev 30%,
+11/03/2026,Goa water sports,Aisha,75,USD,share,Aisha;Rohan;Priya;Dev;Dev's friend Kabir,Aisha 2;Rohan 2;Priya 2;Dev 2;Dev's friend Kabir 1,Kabir joined for the day
+12/03/2026,Goa hotel - Day 3 checkout,Priya,120,USD,equal,Aisha;Rohan;Priya;Dev,,
+15/03/2026,Electricity bill - March,Priya,1800,INR,unequal,Aisha;Rohan;Priya;Meera,Aisha 600;Rohan 600;Priya 300;Meera 200,Larger rooms pay more
+20/03/2026,Mid-March groceries,Rohan,2200,INR,equal,Aisha;Rohan;Priya;Meera,,
+25/03/2026,Farewell dinner for Meera,Aisha,4500,INR,equal,Aisha;Rohan;Priya;Meera,,Going away dinner
+28/03/2026,Internet bill - March,Meera,800,INR,equal,Aisha;Rohan;Priya;Meera,,
+31/03/2026,Gas bill - March,,950,INR,equal,Aisha;Rohan;Priya;Meera,,
+31/03/2026,Meera refund to Aisha,Meera,500,INR,equal,Aisha,,Direct payment - Meera owed Aisha from last month
+10/04/2026,April groceries - first run,Aisha,2200,INR,equal,Aisha;Rohan;Priya,,Before Sam moved in
+04/05/2026,Groceries mid-April,Rohan,1800,INR,equal,Aisha;Rohan;Priya;Sam,,
+15/04/2026,Welcome Sam dinner,Aisha,3600,INR,equal,Aisha;Rohan;Priya;Sam,,Sam joins today!
+22/04/2026,April electricity,Priya,1400,INR,equal,Aisha;Rohan;Priya;Sam;Meera,,
+25/04/2026,Rohan rent share to Sam,Rohan,2000,INR,equal,Sam,,Rent contribution arrangement
+28/04/2026,Grocery store refund,Sam,-200,INR,equal,Aisha;Rohan;Priya;Sam,,Overcharged last time
+30/04/2026,Placeholder test entry,Aisha,0,INR,equal,Aisha;Rohan;Priya;Sam,,Test
+05/05/2026,May groceries,Aisha,2500,INR,equal,Aisha;Rohan;Priya;Sam,,
