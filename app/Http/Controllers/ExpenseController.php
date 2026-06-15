@@ -34,8 +34,8 @@ class ExpenseController extends Controller
     public function create(Group $group)
     {
         $this->authoriseMember($group);
-        $members = $this->activeMembersForGroup($group);
-        return view('expenses.create', compact('group', 'members'));
+        $activeMembers = $this->activeMembersForGroup($group);
+        return view('expenses.create', compact('group', 'activeMembers'));
     }
 
     public function store(Request $request, Group $group)
@@ -113,14 +113,13 @@ class ExpenseController extends Controller
     {
         $this->authoriseMember($group);
         // Show all-time members so imported expenses (with historical members) can be edited
-        $allMembers = GroupMembership::where('group_id', $group->id)
+        $activeMembers = GroupMembership::where('group_id', $group->id)
             ->with('user')
             ->get()
             ->unique('user_id')
-            ->values()
-            ->pluck('user');
+            ->values();
         $expense->load('splits');
-        return view('expenses.edit', compact('group', 'expense', 'allMembers'));
+        return view('expenses.edit', compact('group', 'expense', 'activeMembers'));
     }
 
     public function update(Request $request, Group $group, Expense $expense)
@@ -212,8 +211,7 @@ class ExpenseController extends Controller
         return GroupMembership::where('group_id', $group->id)
             ->whereNull('left_on')
             ->with('user')
-            ->get()
-            ->pluck('user');
+            ->get();
     }
 
     private function authoriseMember(Group $group): void
