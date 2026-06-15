@@ -8,7 +8,6 @@ use App\Http\Controllers\ImportController;
 use App\Http\Controllers\SettlementController;
 use Illuminate\Support\Facades\Route;
 
-// ── Root redirect ──────────────────────────────────────────────────────────────
 Route::get('/', fn () => redirect()->route('login'))->name('home');
 
 // ── Auth (public) ──────────────────────────────────────────────────────────────
