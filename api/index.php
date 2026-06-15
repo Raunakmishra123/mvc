@@ -37,5 +37,21 @@ set_env_var('CACHE_STORE', 'array');
 set_env_var('LOG_CHANNEL', 'stderr');
 set_env_var('VIEW_COMPILED_PATH', '/tmp');
 
+// Redirect all bootstrap caches to /tmp since /var/task/user/bootstrap/cache is read-only
+set_env_var('APP_SERVICES_CACHE', '/tmp/services.php');
+set_env_var('APP_PACKAGES_CACHE', '/tmp/packages.php');
+set_env_var('APP_CONFIG_CACHE', '/tmp/config.php');
+set_env_var('APP_ROUTES_CACHE', '/tmp/routes-v7.php');
+set_env_var('APP_EVENTS_CACHE', '/tmp/events.php');
+
 // Forward Vercel requests to Laravel's public/index.php
-require __DIR__ . '/../public/index.php';
+try {
+    require __DIR__ . '/../public/index.php';
+} catch (\Throwable $e) {
+    header('HTTP/1.1 500 Internal Server Error');
+    header('Content-Type: text/plain');
+    echo "API BOOTSTRAP EXCEPTION:\n";
+    echo $e->getMessage() . "\n\n";
+    echo $e->getTraceAsString() . "\n";
+    exit(1);
+}
