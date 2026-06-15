@@ -49,15 +49,15 @@
                 </div>
 
                 <div class="form-group" style="margin-bottom: 1.125rem;">
-                    <label for="currency" class="form-label">Currency <span class="required">*</span></label>
-                    <select id="currency" name="currency" class="form-select" required>
+                    <label for="home_currency" class="form-label">Currency <span class="required">*</span></label>
+                    <select id="home_currency" name="home_currency" class="form-select" required>
                         <option value="">— Select currency —</option>
-                        <option value="INR" {{ old('currency') === 'INR' ? 'selected' : '' }}>INR — Indian Rupee (₹)</option>
-                        <option value="USD" {{ old('currency') === 'USD' ? 'selected' : '' }}>USD — US Dollar ($)</option>
-                        <option value="EUR" {{ old('currency') === 'EUR' ? 'selected' : '' }}>EUR — Euro (€)</option>
-                        <option value="GBP" {{ old('currency') === 'GBP' ? 'selected' : '' }}>GBP — British Pound (£)</option>
+                        <option value="INR" {{ old('home_currency') === 'INR' ? 'selected' : '' }}>INR — Indian Rupee (₹)</option>
+                        <option value="USD" {{ old('home_currency') === 'USD' ? 'selected' : '' }}>USD — US Dollar ($)</option>
+                        <option value="EUR" {{ old('home_currency') === 'EUR' ? 'selected' : '' }}>EUR — Euro (€)</option>
+                        <option value="GBP" {{ old('home_currency') === 'GBP' ? 'selected' : '' }}>GBP — British Pound (£)</option>
                     </select>
-                    @error('currency')
+                    @error('home_currency')
                         <div class="form-error">{{ $message }}</div>
                     @enderror
                 </div>

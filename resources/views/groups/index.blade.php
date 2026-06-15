@@ -47,7 +47,7 @@
                 <div>
                     <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem;">
                         <div class="group-card-name">{{ $group->name }}</div>
-                        <span class="badge badge-accent">{{ $group->currency }}</span>
+                        <span class="badge badge-accent">{{ $group->home_currency }}</span>
                     </div>
                     @if($group->description)
                         <p style="font-size: 0.82rem; color: var(--color-text-muted); margin-top: 0.4rem; line-height: 1.5;">{{ Str::limit($group->description, 80) }}</p>

@@ -7,7 +7,7 @@
     <div class="page-header-left">
         <h1 class="page-title">{{ $group->name }}</h1>
         <p class="page-subtitle">
-            <span class="badge badge-accent">{{ $group->currency }}</span>
+            <span class="badge badge-accent">{{ $group->home_currency }}</span>
             &nbsp;Group Dashboard
         </p>
     </div>
